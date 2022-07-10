@@ -1,0 +1,6 @@
+__pycache__/
+.idea/
+build-output/
+debug-output/
+build/
+*.egg-info/
