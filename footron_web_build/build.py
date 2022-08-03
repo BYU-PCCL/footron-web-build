@@ -7,7 +7,6 @@ import logging
 import shutil
 import subprocess
 import tempfile
-import argparse
 from datetime import datetime
 from functools import partial
 
