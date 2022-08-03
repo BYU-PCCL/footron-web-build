@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import tomli
 import logging
 import shutil
 import subprocess
@@ -30,7 +31,8 @@ _BUILD_STATIC_PATH = Path("static")
 
 # TODO: Change this to something more specific to Footron because we use it to
 #  identify which paths contain experiences
-_EXPERIENCE_CONFIG_PATH = Path("config.json")
+_EXPERIENCE_JSON_CONFIG_PATH = Path("config.json")
+_EXPERIENCE_TOML_CONFIG_PATH = Path("config.toml")
 _EXPERIENCE_WIDE_PATH = Path("wide.jpg")
 _EXPERIENCE_THUMB_PATH = Path("thumb.jpg")
 _EXPERIENCE_CONTROLS_PATH = Path("controls")
@@ -109,8 +111,17 @@ class Experience:
         self.colors = ComputedColors(base_color, secondary_light, secondary_dark)
 
     def _load_config(self):
-        with open(self.path / _EXPERIENCE_CONFIG_PATH) as config_file:
-            self.config = json.load(config_file)
+        config_path = (
+            json_path
+            if (
+                is_json := (
+                    json_path := self.path / _EXPERIENCE_JSON_CONFIG_PATH
+                ).exists()
+            )
+            else self.path / _EXPERIENCE_TOML_CONFIG_PATH
+        )
+        with open(config_path, "r" if is_json else "rb") as config_file:
+            self.config = (json if is_json else tomli).load(config_file)
         self.id = self.config["id"]
         self.type = self.config["type"]
 
@@ -171,7 +182,11 @@ class WebBuilder:
         self.web_source_path = Path(web_source_path).absolute()
         self.finished_build_path = Path(finished_build_path).absolute()
         experience_paths = list(
-            filter(lambda p: (p / _EXPERIENCE_CONFIG_PATH).exists(), experience_paths)
+            filter(
+                lambda p: (p / _EXPERIENCE_JSON_CONFIG_PATH).exists()
+                or (p / _EXPERIENCE_TOML_CONFIG_PATH).exists(),
+                experience_paths,
+            )
         )
         self.experiences = [
             *map(partial(Experience, generate_colors=generate_colors), experience_paths)
