@@ -10,12 +10,9 @@ import tempfile
 from datetime import datetime
 from functools import partial
 
-import colorgram
 from os import PathLike
 from pathlib import Path
 from typing import Union, List, Dict, Any, Optional
-
-from .color_utils import rgb, rgb_to_hex
 
 # We need to update these if we ever change the web app's directory structure
 _SOURCE_BUILD_PATH = Path("build")
@@ -59,7 +56,6 @@ class Experience:
     config: Dict[str, Any]
     id: str
     type: str
-    colors: Optional[ComputedColors]
 
     @property
     def controls_source_path(self):
@@ -77,37 +73,9 @@ class Experience:
     def thumb_image_path(self):
         return self.path / _EXPERIENCE_THUMB_PATH
 
-    def __init__(self, path: Union[str, PathLike], generate_colors=True):
+    def __init__(self, path: Union[str, PathLike]):
         self.path = Path(path).absolute()
         self._load_config()
-        if (
-            generate_colors
-            and self.wide_image_path.exists()
-            and self.thumb_image_path.exists()
-        ):
-            self._calculate_colors()
-
-    def _calculate_colors(self):
-        logger.info(f"Generating colors for {self.id}")
-        base_color = [
-            l / 255
-            for l in list(colorgram.extract(str(self.wide_image_path), 1)[0].hsl)
-        ]
-        base_color = (base_color[0], min(base_color[1], 0.74), 0.35)
-        secondary_dark = rgb_to_hex(
-            *rgb(
-                *(
-                    (base_color[0] + 0.1) % 1,
-                    max(base_color[1] - 0.15, 0),
-                    base_color[2] + 0.1,
-                )
-            )
-        )
-        secondary_light = rgb_to_hex(
-            *rgb(*((base_color[0] + 0.18) % 1, min(base_color[1] * 1.5, 0.9), 0.94))
-        )
-        base_color = rgb_to_hex(*rgb(*(base_color[0], min(base_color[1], 0.74), 0.35)))
-        self.colors = ComputedColors(base_color, secondary_light, secondary_dark)
 
     def _load_config(self):
         config_path = (
@@ -123,13 +91,6 @@ class Experience:
             self.config = (json if is_json else tomli).load(config_file)
         self.id = self.config["id"]
         self.type = self.config["type"]
-
-
-@dataclasses.dataclass
-class ComputedColors:
-    primary: str
-    secondary_light: str
-    secondary_dark: str
 
 
 @dataclasses.dataclass
@@ -175,7 +136,6 @@ class WebBuilder:
         web_source_path: Union[str, PathLike],
         finished_build_path: Union[str, PathLike],
         experience_paths: List[Union[str, PathLike]],
-        generate_colors=False,
         debug=False,
     ):
         self.web_source_path = Path(web_source_path).absolute()
@@ -187,9 +147,7 @@ class WebBuilder:
                 experience_paths,
             )
         )
-        self.experiences = [
-            *map(partial(Experience, generate_colors=generate_colors), experience_paths)
-        ]
+        self.experiences = list(map(Experience, experience_paths))
         self._output_path = Path(web_source_path).absolute()
         self._debug = debug
 
